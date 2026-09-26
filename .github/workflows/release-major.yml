@@ -65,6 +65,8 @@ jobs:
           "GODOT_EXE=$godotExe" >> $env:GITHUB_ENV
 
       - name: Download mpv
+        env:
+          PYTHONIOENCODING: utf-8
         run: python fetch_mpv.py
 
       - name: Run synchronization tests
