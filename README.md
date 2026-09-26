@@ -62,6 +62,19 @@
    godot --headless --path . --export-release "Windows Desktop" "../VideoSynchronizer.exe"
    ```
 
+## 发布大版本
+
+将准备发布的提交打上 `vN.0.0` 格式的标签并推送，GitHub Actions 会自动构建 Windows exe、
+打包自带 mpv 的开箱即用压缩包，并发布到 GitHub Release：
+
+```
+git tag -a v2.0.0 -m "Video Synchronizer v2.0.0"
+git push origin v2.0.0
+```
+
+`v2.1.0`、`v2.0.1` 等非大版本标签不会触发此工作流。也可以在仓库的 Actions 页面手动运行
+“Build and release major version”，并填写一个已经存在的 `vN.0.0` 标签。
+
 ## 运行测试
 
 ```
