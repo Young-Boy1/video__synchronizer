@@ -1,0 +1,18 @@
+# Godot
+.godot/
+*.tmp
+
+# 导出产物（通过 GitHub Releases 分发）
+*.exe
+export_builds/
+
+# mpv 播放器体积大，不入库（fetch_mpv.py 获取 / Release 内嵌分发）
+vendor/mpv/mpv.exe
+
+# agent 构建中间产物
+vendor/agent/build_dist/
+vendor/agent/build_work/
+vendor/agent/*.spec
+
+# Python
+__pycache__/
