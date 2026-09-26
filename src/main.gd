@@ -34,6 +34,7 @@ func _ready() -> void:
 	net.connected.connect(_on_net_connected)
 	net.failed.connect(_on_net_failed)
 	net.disconnected.connect(_on_net_disconnected)
+	net.game_data.connect(_on_net_game_data)
 
 
 # ---------------- UI 构建 ----------------
@@ -200,6 +201,12 @@ func _set_buttons(enabled: bool) -> void:
 
 # ---------------- 联机层回调 ----------------
 
+## 把联机层收到的数据转发给同步界面（GamePark 同款转发职责）
+func _on_net_game_data(data: String) -> void:
+	if sync_ui != null:
+		sync_ui.on_data(data)
+
+
 func _on_net_connected(peer_desc: String) -> void:
 	# 连接成功 → 直接进入视频同步界面
 	lobby.visible = false
@@ -223,15 +230,9 @@ func _go_lobby(msg: String) -> void:
 		sync_ui.on_exit()
 		sync_ui.queue_free()
 		sync_ui = null
-	game_board_cleanup()
 	lobby.visible = true
 	status_label.text = msg
 	_set_buttons(true)
-
-
-## 兼容 video_sync 旧接口名（其内部通过 net 直接通信，无面板依赖）
-func game_board_cleanup() -> void:
-	pass
 
 
 func _notification(what: int) -> void:

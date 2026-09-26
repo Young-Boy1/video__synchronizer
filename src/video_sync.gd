@@ -369,28 +369,30 @@ func _extract_agent_zip(dir: String) -> void:
 	zip.close()
 
 
-## mpv 路径解析：环境变量 → 已解包副本 → 常见安装位置 → 从包内解包
+## mpv 路径解析：环境变量 → 程序目录旁 → 工程内（源码运行）→ PATH → 常见安装位置
 func _resolve_mpv() -> String:
 	var env := OS.get_environment("MPV_PATH")
 	if env != "" and FileAccess.file_exists(env):
 		return env
-	var candidates := [
-		_extract_dir().path_join("mpv/mpv.exe"),
-		"C:/Program Files/Windows Photo Viewer/mpv/mpv.exe",
-		"C:/Program Files/mpv/mpv.exe",
-		"C:/Program Files (x86)/mpv/mpv.exe",
-	]
+	var candidates := []
+	var exe_dir := OS.get_executable_path().get_base_dir()
+	candidates.append(exe_dir.path_join("mpv/mpv.exe"))
+	candidates.append(exe_dir.path_join("mpv.exe"))
+	# 源码运行时：工程内 vendor/mpv（导出版不含 mpv，见 fetch_mpv.py）
+	candidates.append(ProjectSettings.globalize_path("res://vendor/mpv/mpv.exe"))
 	for c in candidates:
 		if FileAccess.file_exists(c):
 			return c
-	# 都没有：把包内自带 mpv 解包到本地（同伴机器首次使用）
-	var src := "res://vendor/mpv/mpv.exe"
-	if not FileAccess.file_exists(src):
-		return ""
-	var dst: String = candidates[0]
-	DirAccess.make_dir_recursive_absolute(dst.get_base_dir())
-	if _copy_res_to_disk(src, dst):
-		return dst
+	# PATH 里找（where 命令；输出形如 C:\x\mpv.exe）
+	var where_out: Array = []
+	OS.execute("where", ["mpv"], where_out, true)
+	for line in String(where_out[0]).split("\n"):
+		line = line.strip_edges()
+		if line != "" and FileAccess.file_exists(line):
+			return line
+	for c in ["C:/Program Files/mpv/mpv.exe", "C:/Program Files (x86)/mpv/mpv.exe"]:
+		if FileAccess.file_exists(c):
+			return c
 	return ""
 
 
@@ -406,24 +408,10 @@ func _extract_dir() -> String:
 	return OS.get_user_data_dir()
 
 
-func _copy_res_to_disk(src: String, dst: String) -> bool:
-	var in_f := FileAccess.open(src, FileAccess.READ)
-	if in_f == null:
-		return false
-	var out_f := FileAccess.open(dst, FileAccess.WRITE)
-	if out_f == null:
-		return false
-	while in_f.get_position() < in_f.get_length():
-		out_f.store_buffer(in_f.get_buffer(1 << 20))
-	out_f.close()
-	in_f.close()
-	return true
-
-
 func _start_agent_async() -> void:
 	var mpv := _resolve_mpv()
 	if mpv == "":
-		status_label.text = "找不到 mpv 播放器（本工具包内应自带 mpv.exe）。\n请把 mpv.exe 放到程序目录的 vendor/mpv/ 下，或设置环境变量 MPV_PATH。"
+		status_label.text = "找不到 mpv 播放器。\n请把 mpv.exe 放到本程序目录旁的 mpv 文件夹内，或安装 mpv 后重开程序，或设置环境变量 MPV_PATH。"
 		return
 	var cmd := _agent_command()
 	var headless := OS.get_environment("VIDEO_SYNC_TEST") != ""  # 哑 mpv（自动化测试用）；DEBUG 只是日志

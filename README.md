@@ -4,7 +4,6 @@
 两台电脑通过 IPv6/IPv4 **点对点直连**（同一连接上只传控制指令，视频画面与声音走各自本地的
 [mpv](https://mpv.io) 播放器），播放、暂停、拖进度在双方之间保持同步。
 
-由一个双人游戏乐园项目中的"视频同步器"玩法独立而来。
 
 ## 功能
 
@@ -18,7 +17,8 @@
 
 ## 使用方法
 
-1. 双方各自下载 `VideoSynchronizer.exe`（见 Releases，mpv 播放器已内嵌，无需安装任何东西）；
+1. 双方各自下载 Release 里的压缩包并解压（`VideoSynchronizer.exe` + `mpv\mpv.exe`；
+   如果本机已安装 mpv，只下 exe 也行，程序会自动找到）；
 2. 一方点「建房」，窗口会自动复制连接码（形如 `[2402:9002:...]:5577`），发给对方；
 3. 对方粘贴连接码点「加入」；两边各自点「打开本地视频」，选择**同一个视频文件**（文件名相同，
    程序自动核对）；
@@ -31,7 +31,7 @@
 
 ```
 ┌─ 电脑 A ─────────────┐         TCP 直连          ┌─ 电脑 B ─────────────┐
-│ GamePark 界面(同步逻辑)│ ←─ 控制指令/快照(≤KB/s) ─→ │ GamePark 界面(同步逻辑)│
+│ VS 界面(同步逻辑)      │ ←─ 控制指令/快照(≤KB/s) ─→ │ VS 界面(同步逻辑)      │
 │  └─ agent(本机驱动)    │      视频数据不经网络      │  └─ agent(本机驱动)    │
 │      └─ mpv(命名管道)  │                           │      └─ mpv(命名管道)  │
 └──────────────────────┘                           └──────────────────────┘
@@ -78,12 +78,18 @@ godot --headless --path . --script res://tests/test_sync.gd
 │   ├── main.gd/.tscn        大厅：建房 / 加入 / 连接码复制
 │   ├── video_sync.gd/.tscn  同步界面：文件核对、同步状态机、操作提示
 │   ├── net_link.gd          P2P 联机层（TCP 线协议，主机权威）
-│   └── tests/test_sync.gd   无头双实例自动化测试
+│   └── ../tests/test_sync.gd  无头双实例自动化测试
 ├── vendor/
-│   ├── agent/               本机 mpv 驱动器（Python 源码 + 打包好的 agent.zip）
-│   └── mpv/                 mpv.exe（不入库，见 fetch_mpv.py）
-├── fetch_mpv.py             mpv 下载脚本
-└── export_presets.cfg       Windows 单文件导出配置（mpv 内嵌）
+│   └── agent/               本机 mpv 驱动器（Python 源码 + 打包好的 agent.zip）
+├── fetch_mpv.py             mpv 下载脚本（构建者用）
+└── export_presets.cfg       Windows 导出配置（不内嵌 mpv，轻量）
+```
+
+## 体积说明
+
+导出的 exe 约 100MB（Godot 引擎运行时）。mpv 播放器（约 120MB）不内嵌：
+优先使用本机已安装的 mpv，否则把 `mpv.exe` 放到 exe 旁的 `mpv\` 文件夹即可
+（Releases 分发的压缩包已包含）。发布 Release 时把导出的 exe 与 mpv 一起打包成 zip。
 ```
 
 ## 许可证

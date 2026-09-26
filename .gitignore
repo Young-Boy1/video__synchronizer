@@ -8,6 +8,7 @@ export_builds/
 
 # mpv 播放器体积大，不入库（fetch_mpv.py 获取 / Release 内嵌分发）
 vendor/mpv/mpv.exe
+/mpv/
 
 # agent 构建中间产物
 vendor/agent/build_dist/

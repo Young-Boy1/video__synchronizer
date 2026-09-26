@@ -165,7 +165,7 @@ func _run() -> void:
 	_check(game_a.my_state == "s" and game_b.my_state == "s", "恢复播放 (a=%s b=%s)" % [game_a.my_state, game_b.my_state])
 	var drift_target: float = game_b.my_pos + 0.4
 	game_b._send_agent("SEEK %.3f" % drift_target)
-	await create_timer(6.0).timeout
+	await create_timer(8.0).timeout
 	# 用外推到当前时刻的位置比较（原始测量各自滞后 0~0.25s，直接比是噪声）
 	var now_ms := Time.get_ticks_msec()
 	var a_now: float = game_a.my_pos + (minf((now_ms - game_a.my_pos_ms) / 1000.0, 0.5) if game_a.my_state == "s" else 0.0)
@@ -225,6 +225,39 @@ func _run() -> void:
 	await create_timer(1.0).timeout
 	_check(game_a.my_state == "s" and game_b.my_state == "s",
 			"mpv窗口播放 1 秒后不回暂停 (a=%s b=%s)" % [game_a.my_state, game_b.my_state])
+
+	# 13) main 集成：大厅 → 连接 → 同步界面（覆盖 game_data 转发链）
+	var ma: Node = (load("res://src/main.tscn") as PackedScene).instantiate()
+	var mb: Node = (load("res://src/main.tscn") as PackedScene).instantiate()
+	root.add_child(ma)
+	root.add_child(mb)
+	ma._on_host_pressed()
+	mb.addr_entry.text = "[::1]:5577"
+	mb._on_join_pressed()
+	var ui_ready := false
+	for i in 60:
+		await create_timer(0.5).timeout
+		if ma.sync_ui != null and mb.sync_ui != null 				and ma.sync_ui.agent_up and mb.sync_ui.agent_up:
+			ui_ready = true
+			break
+	_check(ui_ready, "main 集成：双方同步界面与 agent 就绪")
+	if ui_ready:
+		ma.sync_ui._on_file_selected(media_path)
+		mb.sync_ui._on_file_selected(media_path)
+		var both_loaded := false
+		for i in 40:
+			await create_timer(0.5).timeout
+			if ma.sync_ui.my_pos_ms > 0 and mb.sync_ui.my_pos_ms > 0:
+				both_loaded = true
+				break
+		_check(both_loaded, "main 集成：双方 mpv 启动并载入")
+		mb.sync_ui._on_play_pressed()
+		await create_timer(1.5).timeout
+		_check(ma.sync_ui.my_state == "s" and mb.sync_ui.my_state == "s",
+				"main 集成：B 播放同步到 A（game_data 转发正常）(a=%s b=%s)"
+						% [ma.sync_ui.my_state, mb.sync_ui.my_state])
+	ma._on_net_disconnected()
+	mb._on_net_disconnected()
 
 	_cleanup()
 	if fails == 0:
