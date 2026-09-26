@@ -23,7 +23,7 @@ import zipfile
 # shinchiro 的 mpv-winbuild-cmake 最新版（Windows x86_64）
 API = "https://api.github.com/repos/shinchiro/mpv-winbuild-cmake/releases/latest"
 MIRROR = "https://ghfast.top/"
-DEST = "vendor/mpv/mpv.exe"
+DEST = "vendor/mpv"
 
 
 def fetch(url):
@@ -55,31 +55,34 @@ def main():
     data = fetch(url)
     print("大小: %.1f MB" % (len(data) / 1048576))
 
-    os.makedirs(os.path.dirname(DEST), exist_ok=True)
-    if asset["name"].endswith(".zip"):
-        zf = zipfile.ZipFile(io.BytesIO(data))
-        exe = next(n for n in zf.namelist() if n.endswith("mpv.exe"))
-        with open(DEST, "wb") as f:
-            f.write(zf.read(exe))
-    else:
-        seven_zip = shutil.which("7z")
-        if seven_zip is None:
-            print("解压 .7z 资产需要 PATH 中存在 7z", file=sys.stderr)
-            sys.exit(1)
-        with tempfile.TemporaryDirectory() as temp_dir:
-            archive = pathlib.Path(temp_dir) / asset["name"]
-            archive.write_bytes(data)
+    os.makedirs(DEST, exist_ok=True)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        archive = pathlib.Path(temp_dir) / asset["name"]
+        archive.write_bytes(data)
+        if asset["name"].endswith(".zip"):
+            with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                zf.extractall(temp_dir)
+        else:
+            seven_zip = shutil.which("7z")
+            if seven_zip is None:
+                print("解压 .7z 资产需要 PATH 中存在 7z", file=sys.stderr)
+                sys.exit(1)
             subprocess.run(
                 [seven_zip, "x", str(archive), f"-o{temp_dir}", "-y"],
                 check=True,
                 stdout=subprocess.DEVNULL,
             )
-            exe_path = next(pathlib.Path(temp_dir).rglob("mpv.exe"), None)
-            if exe_path is None:
-                print("mpv 资产中未找到 mpv.exe", file=sys.stderr)
-                sys.exit(1)
-            shutil.copyfile(exe_path, DEST)
-    print("已保存:", DEST)
+        exe_path = next(pathlib.Path(temp_dir).rglob("mpv.exe"), None)
+        if exe_path is None:
+            print("mpv 资产中未找到 mpv.exe", file=sys.stderr)
+            sys.exit(1)
+        source_dir = exe_path.parent
+        for source in source_dir.rglob("*"):
+            if source.is_file():
+                target = pathlib.Path(DEST) / source.relative_to(source_dir)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, target)
+    print("已保存:", pathlib.Path(DEST) / "mpv.exe")
 
 
 if __name__ == "__main__":

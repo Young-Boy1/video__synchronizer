@@ -97,7 +97,7 @@ jobs:
 
           New-Item -ItemType Directory -Force "$packageDir/mpv" | Out-Null
           Copy-Item "release/VideoSynchronizer.exe" "$packageDir/VideoSynchronizer.exe"
-          Copy-Item "vendor/mpv/mpv.exe" "$packageDir/mpv/mpv.exe"
+          Copy-Item "vendor/mpv/*" "$packageDir/mpv" -Recurse -Force
           Copy-Item "LICENSE" "$packageDir/LICENSE.txt"
 
           Compress-Archive -Path $packageDir -DestinationPath "release/$package.zip" -CompressionLevel Optimal
