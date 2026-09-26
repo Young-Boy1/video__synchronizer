@@ -1,0 +1,126 @@
+name: Build and release major version
+
+on:
+  push:
+    tags:
+      - "v*.0.0"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要发布的已有大版本标签（例如 v2.0.0）"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    name: Build Windows release
+    runs-on: windows-latest
+    env:
+      GODOT_VERSION: "4.7.2"
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Validate major version tag
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v[1-9][0-9]*\.0\.0$') {
+            throw "大版本标签必须是 vN.0.0 格式，例如 v2.0.0；当前值：$env:RELEASE_TAG"
+          }
+
+      - name: Check out tagged source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Download Godot and export templates
+        shell: pwsh
+        run: |
+          $release = "$env:GODOT_VERSION-stable"
+          $baseUrl = "https://github.com/godotengine/godot-builds/releases/download/$release"
+          $godotZip = "Godot_v$($release)_win64.exe.zip"
+          $templates = "Godot_v$($release)_export_templates.tpz"
+
+          Invoke-WebRequest "$baseUrl/$godotZip" -OutFile $godotZip
+          Invoke-WebRequest "$baseUrl/$templates" -OutFile $templates
+          Expand-Archive $godotZip -DestinationPath .godot-bin
+
+          $templateDir = Join-Path $env:APPDATA "Godot\export_templates\$($env:GODOT_VERSION).stable"
+          New-Item -ItemType Directory -Force $templateDir | Out-Null
+          7z x $templates "-o.godot-templates" -y | Out-Null
+          Copy-Item ".godot-templates\templates\*" $templateDir -Recurse -Force
+
+          $godotExe = (Resolve-Path ".godot-bin\Godot_v$($release)_win64.exe").Path
+          "GODOT_EXE=$godotExe" >> $env:GITHUB_ENV
+
+      - name: Download mpv
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python fetch_mpv.py
+
+      - name: Run synchronization tests
+        shell: pwsh
+        run: |
+          & $env:GODOT_EXE --headless --path . --script res://tests/test_sync.gd
+          if ($LASTEXITCODE -ne 0) {
+            throw "自动化测试失败，退出码：$LASTEXITCODE"
+          }
+
+      - name: Export Windows executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "release" | Out-Null
+          & $env:GODOT_EXE --headless --path . --export-release "Windows Desktop" "release/VideoSynchronizer.exe"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Godot 导出失败，退出码：$LASTEXITCODE"
+          }
+          if (-not (Test-Path "release/VideoSynchronizer.exe")) {
+            throw "未生成 release/VideoSynchronizer.exe"
+          }
+
+      - name: Assemble release package
+        shell: pwsh
+        run: |
+          $package = "VideoSynchronizer-$env:RELEASE_TAG-windows-x86_64"
+          $packageDir = Join-Path "release/package" $package
+
+          New-Item -ItemType Directory -Force "$packageDir/mpv" | Out-Null
+          Copy-Item "release/VideoSynchronizer.exe" "$packageDir/VideoSynchronizer.exe"
+          Copy-Item "vendor/mpv/mpv.exe" "$packageDir/mpv/mpv.exe"
+          Copy-Item "LICENSE" "$packageDir/LICENSE.txt"
+
+          Compress-Archive -Path $packageDir -DestinationPath "release/$package.zip" -CompressionLevel Optimal
+
+          $assets = @(
+            "release/VideoSynchronizer.exe",
+            "release/$package.zip"
+          )
+          $checksums = foreach ($asset in $assets) {
+            $hash = (Get-FileHash $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([IO.Path]::GetFileName($asset))"
+          }
+          $checksums | Set-Content "release/SHA256SUMS.txt" -Encoding ascii
+          "PACKAGE_PATH=release/$package.zip" >> $env:GITHUB_ENV
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: Video Synchronizer ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release/VideoSynchronizer.exe
+            ${{ env.PACKAGE_PATH }}
+            release/SHA256SUMS.txt
