@@ -11,7 +11,12 @@ Video Synchronizer 需要 mpv 播放器。为了控制仓库体积，mpv.exe 不
 """
 import argparse
 import io
+import os
+import pathlib
+import shutil
 import sys
+import subprocess
+import tempfile
 import urllib.request
 import zipfile
 
@@ -38,7 +43,8 @@ def main():
     asset = None
     for a in rel.get("assets", []):
         name = a["name"]
-        if name.startswith("mpv-x86_64-") and name.endswith(".zip") and "v3" not in name:
+        if (name.startswith("mpv-x86_64-") and name.endswith((".7z", ".zip"))
+                and "v3" not in name):
             asset = a
             break
     if asset is None:
@@ -49,12 +55,30 @@ def main():
     data = fetch(url)
     print("大小: %.1f MB" % (len(data) / 1048576))
 
-    zf = zipfile.ZipFile(io.BytesIO(data))
-    exe = next(n for n in zf.namelist() if n.endswith("mpv.exe"))
-    import os
     os.makedirs(os.path.dirname(DEST), exist_ok=True)
-    with open(DEST, "wb") as f:
-        f.write(zf.read(exe))
+    if asset["name"].endswith(".zip"):
+        zf = zipfile.ZipFile(io.BytesIO(data))
+        exe = next(n for n in zf.namelist() if n.endswith("mpv.exe"))
+        with open(DEST, "wb") as f:
+            f.write(zf.read(exe))
+    else:
+        seven_zip = shutil.which("7z")
+        if seven_zip is None:
+            print("解压 .7z 资产需要 PATH 中存在 7z", file=sys.stderr)
+            sys.exit(1)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            archive = pathlib.Path(temp_dir) / asset["name"]
+            archive.write_bytes(data)
+            subprocess.run(
+                [seven_zip, "x", str(archive), f"-o{temp_dir}", "-y"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
+            exe_path = next(pathlib.Path(temp_dir).rglob("mpv.exe"), None)
+            if exe_path is None:
+                print("mpv 资产中未找到 mpv.exe", file=sys.stderr)
+                sys.exit(1)
+            shutil.copyfile(exe_path, DEST)
     print("已保存:", DEST)
 
 
