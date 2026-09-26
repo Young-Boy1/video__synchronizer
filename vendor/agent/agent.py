@@ -1,6 +1,6 @@
-"""GamePark 视频同步器 —— 本机 mpv 驱动器（无界面）。
+"""Video Synchronizer —— 本机 mpv 驱动器（无界面）。
 
-被 GamePark（Godot）拉起，职责只有一件事：在本机控制 mpv。
+被 Video Synchronizer（Godot 界面）拉起，职责只有一件事：在本机控制 mpv。
 同步逻辑全部在 Godot 侧；本工具不做任何双机通信。
 
 用法:
@@ -62,7 +62,7 @@ class MpvDriver:
             self.mpv_path, "--no-config", "--no-terminal", "--idle=yes",
             "--keep-open=yes", "--pause", "--input-ipc-server=" + PIPE_NAME,
             "--sub-auto=fuzzy", "--hwdec=auto-safe",
-            "--title=GamePark 视频同步",
+            "--title=Video Synchronizer 视频同步",
         ]
         if self.headless:
             args += ["--vo=null", "--ao=null"]
@@ -196,7 +196,7 @@ class MpvDriver:
 
 
 def handle_client(conn: socket.socket, drv: MpvDriver, token: str) -> None:
-    """处理 GamePark 客户端连接；断开或 QUIT 后由 main 收尾退出。"""
+    """处理 Video Synchronizer 客户端连接；断开或 QUIT 后由 main 收尾退出。"""
     conn.sendall(("HI %s\n" % token).encode("ascii"))
     buf = bytearray()
     try:

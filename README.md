@@ -94,8 +94,7 @@ godot --headless --path . --script res://tests/test_sync.gd
 
 ## 许可证
 
-本项目代码以 [MIT](LICENSE) 协议开源。
+本项目以 [GPL-3.0](LICENSE) 协议开源。
 
-内嵌分发的 `mpv.exe` 来自 [mpv.io](https://mpv.io)（未修改的上游构建），
+打包分发的 `mpv.exe` 来自 [mpv.io](https://mpv.io)（未修改的上游构建），
 mpv 以 **GPLv2+** 授权，其源码见 https://github.com/mpv-player/mpv 。
-本项目的代码与 mpv 之间仅通过进程间通信交互，彼此独立。

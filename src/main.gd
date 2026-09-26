@@ -201,7 +201,7 @@ func _set_buttons(enabled: bool) -> void:
 
 # ---------------- 联机层回调 ----------------
 
-## 把联机层收到的数据转发给同步界面（GamePark 同款转发职责）
+## 把联机层收到的数据转发给同步界面（大厅 → 同步界面）
 func _on_net_game_data(data: String) -> void:
 	if sync_ui != null:
 		sync_ui.on_data(data)
